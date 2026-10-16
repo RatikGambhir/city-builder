@@ -1,0 +1,12 @@
+[package]
+name = "isocity-app"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[[bin]]
+name = "isocity"
+path = "src/main.rs"
+
+[dependencies]
+isocity-core = { path = "../isocity-core" }
