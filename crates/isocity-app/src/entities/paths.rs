@@ -89,13 +89,9 @@ pub fn road_path(grid: &Grid, from: (i32, i32), to: (i32, i32)) -> Option<Vec<(i
         grid.size(),
         from,
         |x, y| (x, y) == to,
-        |x, y, nx, ny| Direction::from_step(nx - x, ny - y).map_or(false, |d| can_drive(grid, x, y, d)),
+        |x, y, nx, ny| Direction::from_step(nx - x, ny - y).is_some_and(|d| can_drive(grid, x, y, d)),
         20_000,
     )
-}
-
-pub fn rail_path(grid: &Grid, from: (i32, i32), to: (i32, i32)) -> Option<Vec<(i32, i32)>> {
-    bfs(grid.size(), from, |x, y| (x, y) == to, |_, _, nx, ny| grid.is_rail(nx, ny), 20_000)
 }
 
 /// Water path between two water tiles.

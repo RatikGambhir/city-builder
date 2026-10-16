@@ -374,9 +374,6 @@ impl ChunkCache {
             .find_map(|l| self.chunks.get(&ChunkKey { cx, cy, lod: l }))
     }
 
-    pub fn is_pending(&self) -> bool {
-        !self.pending.is_empty()
-    }
 }
 
 /// Chunk coordinates intersecting a world-space rectangle.

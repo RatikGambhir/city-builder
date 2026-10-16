@@ -3,7 +3,7 @@
 
 use super::widgets::{fmt_num, icon, money};
 use crate::assets;
-use crate::sprites::config::{self, Sheet};
+use crate::sprites::config;
 use crate::theme;
 use crate::world::World;
 use gpui::{canvas, div, prelude::*, px, ClickEvent, Context, Corners, EventEmitter, SharedString, Window};
@@ -260,7 +260,6 @@ impl Render for StartView {
                                         bld.construction_progress = 100.0;
                                         let Some(src) = config::select_source(pack, &bld, 0, 0) else { continue };
                                         let crop = config::crop_for(*kind, &src);
-                                        let src = config::SpriteSource { sheet: if src.sheet == Sheet::Services || src.sheet == Sheet::Infrastructure { src.sheet } else { src.sheet }, ..src };
                                         if let Some(sprite) = w.renderer.sprites.cell(src.sheet, crop, false) {
                                             let max = cell - 20.0;
                                             let aspect = sprite.full_h / sprite.full_w;

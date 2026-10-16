@@ -168,10 +168,6 @@ impl SpriteCache {
         }
     }
 
-    pub fn sheet_size(&self, sheet: Sheet) -> Option<(u32, u32)> {
-        self.store.get(sheet).map(|s| s.dimensions())
-    }
-
     /// Sprite for a sheet cell with the per-building crop adjustments.
     pub fn cell(&mut self, sheet: Sheet, crop: CellCrop, flipped: bool) -> Option<Arc<Sprite>> {
         let Some(img) = self.store.get(sheet) else {

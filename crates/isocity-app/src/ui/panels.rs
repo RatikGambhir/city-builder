@@ -3,6 +3,7 @@
 
 use super::game_view::{set_sprite_pack, slider, GameEvent, GameView, SliderKind};
 use super::widgets::{self, fmt_num, icon, money};
+use crate::render::lighting::DayNightMode;
 use crate::render::shapes;
 use crate::sprites::config::SpritePack;
 use crate::theme;
@@ -324,7 +325,7 @@ fn advisors_body(this: &GameView) -> AnyElement {
                         .child(grade),
                 )
                 .child(
-                    div()
+                    div().flex_1().min_w_0()
                         .child(div().font_weight(gpui::FontWeight::SEMIBOLD).child("Overall City Rating"))
                         .child(div().text_size(px(14.0)).text_color(theme::muted_foreground()).child("Based on happiness, health, education, safety & environment")),
                 ),
@@ -409,6 +410,7 @@ fn settings_body(this: &GameView, _window: &mut Window, cx: &mut Context<GameVie
     let st = w.state();
     let disasters = st.disasters_enabled;
     let pack = w.renderer.pack;
+    let day_night = w.day_night;
     let name = st.city_name.clone();
     let size = st.grid_size;
     let current_id = st.id.clone();
@@ -459,6 +461,21 @@ fn settings_body(this: &GameView, _window: &mut Window, cx: &mut Context<GameVie
             button(format!("pack-{p:?}"), p.name(), p == pack)
                 .on_click(cx.listener(move |this, _: &ClickEvent, window, cx| {
                     set_sprite_pack(this, p, window, cx);
+                    cx.notify();
+                }))
+                .into_any_element()
+        })))
+        .child(widgets::section_label("DAY/NIGHT MODE"))
+        .child(
+            div()
+                .text_size(px(12.0))
+                .text_color(theme::muted_foreground())
+                .child("Override the time-of-day appearance without affecting time progression"),
+        )
+        .child(div().flex().gap(px(8.0)).children(DayNightMode::ALL.iter().map(|&m| {
+            button(format!("daynight-{m:?}"), m.label(), m == day_night)
+                .on_click(cx.listener(move |this, _: &ClickEvent, _, cx| {
+                    this.world.borrow_mut().day_night = m;
                     cx.notify();
                 }))
                 .into_any_element()

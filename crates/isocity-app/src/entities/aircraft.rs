@@ -22,6 +22,8 @@ pub enum PlaneType {
     B737,
     B777,
     B747,
+    /// On the sprite sheet, but (as in the web version) never spawned.
+    #[allow(dead_code)]
     A380,
     Seaplane,
     G650,
@@ -182,6 +184,7 @@ impl PlaneSprites {
         Some(sprite)
     }
 
+    #[allow(clippy::too_many_arguments)]
     fn paint(&mut self, window: &mut Window, v: &View, store: &SheetStore, t: PlaneType, x: f32, y: f32, angle: f32, scale: f32) {
         if let Some(s) = self.get(store, t, angle) {
             let half = s.half * scale;

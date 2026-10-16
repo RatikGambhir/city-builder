@@ -144,7 +144,7 @@ fn generate_lakes(grid: &mut Grid, rng: &mut Rng, seed: f64) -> Vec<WaterBody> {
             for (dx, dy) in DIRS {
                 let (nx, ny) = (px + dx, py + dy);
                 if in_range(nx, ny) && !in_lake.contains(&(nx, ny)) && !in_candidates.contains(&(nx, ny)) {
-                    let d = ((((nx - cx).pow(2) + (ny - cy).pow(2)) as f64)).sqrt();
+                    let d = (((nx - cx).pow(2) + (ny - cy).pow(2)) as f64).sqrt();
                     candidates.push((nx, ny, d, lake_noise(nx, ny)));
                     in_candidates.insert((nx, ny));
                 }

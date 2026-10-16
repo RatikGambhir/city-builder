@@ -8,6 +8,7 @@ use crate::render::tiles::TileMap;
 use crate::render::world::View;
 use gpui::Window;
 use isocity_core::{BuildingType as B, Direction, GameState, Grid, Rng};
+use std::collections::HashSet;
 
 pub const CAR_COLORS: [u32; 5] = [0xd97777, 0xd4a01f, 0x2ba67a, 0x4d84c8, 0x9a6ac9];
 pub const BUS_COLORS: [u32; 5] = [0xf59e0b, 0xef4444, 0x3b82f6, 0x10b981, 0x9333ea];
@@ -175,7 +176,7 @@ impl Traffic {
                 self.road_tiles.push((t.x, t.y));
                 // Stops next to commercial and civic buildings.
                 let near = [(-1, 0), (1, 0), (0, -1), (0, 1)].iter().any(|(dx, dy)| {
-                    g.get(t.x + dx, t.y + dy).map_or(false, |n| {
+                    g.get(t.x + dx, t.y + dy).is_some_and(|n| {
                         n.zone == isocity_core::ZoneType::Commercial && !n.building.kind.is_terrain()
                             || matches!(n.building.kind, B::School | B::University | B::Hospital | B::CityHall | B::Stadium | B::Museum | B::RailStation | B::SubwayStation)
                     })
@@ -194,24 +195,41 @@ impl Traffic {
         }
     }
 
-    pub fn road_count(&self) -> usize {
-        self.road_tiles.len()
-    }
-
-    pub fn update(&mut self, dt: f32, state: &GameState, map: &TileMap, light_time: f32, rng: &mut Rng, zoom: f32) {
+    /// `closed` holds railroad crossings that road vehicles must wait at.
+    #[allow(clippy::too_many_arguments)]
+    pub fn update(
+        &mut self,
+        dt: f32,
+        state: &GameState,
+        map: &TileMap,
+        light_time: f32,
+        closed: &HashSet<(i32, i32)>,
+        rng: &mut Rng,
+        zoom: f32,
+    ) {
         self.refresh(state);
         let g = &state.grid;
         let mult = speed_multiplier(state.speed);
         if zoom < 0.4 {
             self.cars.clear();
         } else {
-            self.update_cars(dt, g, map, mult, light_time, rng);
+            self.update_cars(dt, g, map, mult, light_time, closed, rng);
         }
-        self.update_buses(dt, g, state.stats.population, mult, rng);
+        self.update_buses(dt, g, state.stats.population, mult, closed, rng);
         self.update_emergency(dt, state, mult);
     }
 
-    fn update_cars(&mut self, dt: f32, g: &Grid, map: &TileMap, mult: f32, light_time: f32, rng: &mut Rng) {
+    #[allow(clippy::too_many_arguments)]
+    fn update_cars(
+        &mut self,
+        dt: f32,
+        g: &Grid,
+        map: &TileMap,
+        mult: f32,
+        light_time: f32,
+        closed: &HashSet<(i32, i32)>,
+        rng: &mut Rng,
+    ) {
         let max_cars = ((self.road_tiles.len() as f32 * 0.5) as usize).clamp(15, 500);
         self.car_timer -= dt;
         if self.cars.len() < max_cars && self.car_timer <= 0.0 && !self.road_tiles.is_empty() {
@@ -264,6 +282,12 @@ impl Traffic {
                 && map.is_intersection(nx, ny)
                 && car.progress > 0.35
                 && !can_proceed(car.dir, light);
+            // Railroad crossings: wait while a train approaches; a car
+            // already well onto the crossing keeps going to clear it.
+            if !stop {
+                stop = (closed.contains(&(car.x, car.y)) && car.progress < 0.3)
+                    || (car.progress > 0.5 && closed.contains(&(nx, ny)));
+            }
             if !stop {
                 if let Some(v) = by_tile.get(&(car.y * size + car.x)) {
                     stop = v.iter().any(|(id, d, p)| *id != car.id && *d == car.dir && *p > car.progress && p - car.progress < 0.25);
@@ -309,7 +333,7 @@ impl Traffic {
         self.cars = cars;
     }
 
-    fn update_buses(&mut self, dt: f32, g: &Grid, population: i64, mult: f32, rng: &mut Rng) {
+    fn update_buses(&mut self, dt: f32, g: &Grid, population: i64, mult: f32, closed: &HashSet<(i32, i32)>, rng: &mut Rng) {
         if population < 600 || self.bus_stops.len() < 2 {
             self.buses.clear();
             return;
@@ -355,6 +379,12 @@ impl Traffic {
             }
             if bus.stop_timer > 0.0 {
                 bus.stop_timer -= dt * mult;
+                return true;
+            }
+            let next = bus.path.get(bus.index + 1).copied();
+            if (closed.contains(&(bus.x, bus.y)) && bus.progress < 0.3)
+                || (bus.progress > 0.5 && next.is_some_and(|n| closed.contains(&n)))
+            {
                 return true;
             }
             bus.progress += bus.speed * dt * mult;
@@ -415,7 +445,7 @@ impl Traffic {
                 for &(fx, fy) in &self.fire_stations {
                     if let Some(start) = paths::road_next_to(g, fx, fy) {
                         if let Some(p) = paths::road_path(g, start, goal) {
-                            if best.as_ref().map_or(true, |b| p.len() < b.len()) {
+                            if best.as_ref().is_none_or(|b| p.len() < b.len()) {
                                 best = Some(p);
                             }
                         }
@@ -473,7 +503,7 @@ impl Traffic {
         self.emergency.retain_mut(|e| {
             if e.wait > 0.0 {
                 e.wait -= dt * mult;
-                let burning = g.get(e.target.0, e.target.1).map_or(false, |t| t.building.on_fire);
+                let burning = g.get(e.target.0, e.target.1).is_some_and(|t| t.building.on_fire);
                 if burning && e.wait < 1.0 {
                     e.wait = 1.0;
                 }

@@ -93,12 +93,6 @@ impl Canvas {
         self.stroke_poly(&[a, b], false, width, color, None);
     }
 
-    pub fn line_round(&mut self, a: P, b: P, width: f32, color: Rgba) {
-        if let Some(path) = Self::poly_path(&[a, b], false) {
-            self.stroke_path(&path, width, color, None, LineCap::Round);
-        }
-    }
-
     pub fn dashed_line(&mut self, a: P, b: P, width: f32, color: Rgba, dash: &[f32], cap: LineCap) {
         if let Some(path) = Self::poly_path(&[a, b], false) {
             self.stroke_path(&path, width, color, Some(dash), cap);

@@ -4,6 +4,7 @@
 pub mod aircraft;
 pub mod bake;
 pub mod boats;
+pub mod crossings;
 pub mod effects;
 pub mod paths;
 pub mod pedestrians;
@@ -21,6 +22,7 @@ pub struct Entities {
     pub trains: trains::Trains,
     pub aircraft: aircraft::Aircraft,
     pub boats: boats::Boats,
+    pub crossings: crossings::Crossings,
     pub effects: effects::Effects,
     pub bake: bake::BakeCache,
     rng: Rng,
@@ -35,6 +37,7 @@ impl Entities {
             trains: Default::default(),
             aircraft: Default::default(),
             boats: Default::default(),
+            crossings: Default::default(),
             effects: Default::default(),
             bake: Default::default(),
             rng: Rng::from_entropy(),
@@ -46,11 +49,13 @@ impl Entities {
             self.traffic_time += dt * traffic::speed_multiplier(state.speed).min(2.5);
         }
         let zoom = v.cam.zoom;
+        self.trains.update(dt, state, &mut self.rng);
         if let Some(map) = renderer.tile_map.as_ref() {
-            self.traffic.update(dt, state, map, self.traffic_time, &mut self.rng, zoom);
+            self.crossings.update(dt, state, map, &self.trains);
+            let closed = &self.crossings.closed;
+            self.traffic.update(dt, state, map, self.traffic_time, closed, &mut self.rng, zoom);
         }
         self.pedestrians.update(dt, state, &mut self.rng, zoom);
-        self.trains.update(dt, state, &mut self.rng);
         self.aircraft.update(dt, state, &mut self.rng);
         self.boats.update(dt, state, &mut self.rng);
         self.effects.update(dt, state, &mut self.rng, zoom);

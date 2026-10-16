@@ -96,7 +96,7 @@ impl Boats {
         let boats = self.vessels.iter().filter(|v| !v.barge).count();
         let max_boats = (self.docks.len() * 6).min(60);
         self.timer -= dt;
-        if self.docks.len() >= 1 && boats < max_boats && self.timer <= 0.0 {
+        if !self.docks.is_empty() && boats < max_boats && self.timer <= 0.0 {
             self.timer = 1.0 + rng.next_f32() * 2.0;
             let a = *rng.pick(&self.docks).unwrap();
             // Sail to another dock, or roam to a random spot of the same water body.

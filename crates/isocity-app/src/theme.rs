@@ -67,9 +67,6 @@ pub fn red() -> Hsla {
 pub fn red_400() -> Hsla {
     rgb(0xf87171).into()
 }
-pub fn purple() -> Hsla {
-    rgb(0xa855f7).into()
-}
 pub fn yellow() -> Hsla {
     rgb(0xeab308).into()
 }

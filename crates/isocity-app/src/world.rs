@@ -5,6 +5,7 @@ use crate::entities::Entities;
 use crate::iso::{grid_to_world, tile_center, world_to_grid, Camera, TILE_H, TILE_W};
 use crate::render::shapes::{self, rgba};
 use crate::render::world::{View, WorldRenderer};
+use crate::render::lighting::{DayNightMode, Lighting};
 use crate::theme;
 use gpui::{px, App, Bounds, Hsla, Pixels, SharedString, TextRun, Window};
 use isocity_core::{
@@ -37,19 +38,6 @@ impl OverlayMode {
         OverlayMode::Education,
         OverlayMode::Subway,
     ];
-
-    pub fn title(self) -> &'static str {
-        match self {
-            OverlayMode::None => "No Overlay",
-            OverlayMode::Power => "Power Grid",
-            OverlayMode::Water => "Water System",
-            OverlayMode::Fire => "Fire Coverage",
-            OverlayMode::Police => "Police Coverage",
-            OverlayMode::Health => "Health Coverage",
-            OverlayMode::Education => "Education Coverage",
-            OverlayMode::Subway => "Subway Coverage",
-        }
-    }
 
     pub fn icon(self) -> &'static str {
         match self {
@@ -156,6 +144,8 @@ pub struct World {
     pub toast: Option<Toast>,
     pub fps: f32,
     pub perf: (f32, f32),
+    pub lighting: Lighting,
+    pub day_night: DayNightMode,
 }
 
 impl World {
@@ -187,6 +177,12 @@ impl World {
             toast: None,
             fps: 60.0,
             perf: (0.0, 0.0),
+            lighting: Lighting::default(),
+            day_night: match std::env::var("ISOCITY_DAY_NIGHT").as_deref() {
+                Ok("day") => DayNightMode::Day,
+                Ok("night") => DayNightMode::Night,
+                _ => DayNightMode::Auto,
+            },
         }
     }
 
@@ -211,8 +207,15 @@ impl World {
     }
 
     pub fn submit(&mut self, cmd: Command) -> bool {
+        let old_size = self.state().grid.size();
         match self.session.submit(cmd) {
-            Ok(()) => true,
+            Ok(()) => {
+                let new_size = self.state().grid.size();
+                if new_size != old_size {
+                    self.grid_resized(old_size, new_size);
+                }
+                true
+            }
             Err(Rejection::InsufficientFunds) => {
                 self.show_toast("Not enough funds");
                 false
@@ -241,10 +244,30 @@ impl World {
         self.view_size = (f32::from(bounds.size.width), f32::from(bounds.size.height));
         if !self.centered && self.view_size.0 > 10.0 {
             self.centered = true;
-            if std::env::var_os("ISOCITY_CENTER").is_some() {
-                self.center_on_map();
+            // Debug aid: `ISOCITY_CENTER=1` centers the map, `x,y[,zoom]` a tile.
+            if let Ok(spec) = std::env::var("ISOCITY_CENTER") {
+                let v: Vec<f32> = spec.split(',').filter_map(|p| p.trim().parse().ok()).collect();
+                if v.len() >= 2 {
+                    self.camera.zoom = v.get(2).copied().unwrap_or(1.0);
+                    self.camera.center_on(v[0], v[1], self.view_size.0, self.view_size.1);
+                } else {
+                    self.center_on_map();
+                }
             }
         }
+    }
+
+    /// Expanding or shrinking the city moves every tile diagonally by the
+    /// border width; shift the camera by the same amount so the view stays
+    /// on the same part of the city, and restart the visual entities whose
+    /// tile coordinates are now stale.
+    fn grid_resized(&mut self, old_size: i32, new_size: i32) {
+        let border = (new_size - old_size) as f32 / 2.0;
+        self.camera.offset_y -= border * TILE_H * self.camera.zoom;
+        self.entities = Entities::new(new_size);
+        self.selected = None;
+        self.hovered = None;
+        self.drag = None;
     }
 
     pub fn center_on_map(&mut self) {
@@ -391,7 +414,7 @@ impl World {
                     self.place(x, y);
                 }
             }
-        } else if self.drag.as_ref().map_or(false, |d| d.end != t) {
+        } else if self.drag.as_ref().is_some_and(|d| d.end != t) {
             if let Some(d) = self.drag.as_mut() {
                 d.end = t;
             }
@@ -525,6 +548,7 @@ impl World {
         self.paint_drag_preview(window, &v);
         self.entities.paint_ground_level(window, &v, state, &mut self.renderer, self.time);
         self.paint_traffic_lights(window, &v);
+        self.entities.crossings.paint(window, &v);
 
         let list = self.renderer.collect_buildings(state, &v);
         for d in list {
@@ -534,6 +558,9 @@ impl World {
         self.paint_overlay(window, &v);
         self.paint_highlights(window, &v);
         self.entities.paint_air(window, &v, state, &mut self.renderer, self.time);
+        self.lighting.release_garbage(window);
+        let hour = self.day_night.visual_hour(state.hour);
+        self.lighting.paint(window, &v, state, hour);
         self.paint_labels(window, cx, &v);
     }
 

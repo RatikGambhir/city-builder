@@ -16,6 +16,9 @@ const PASSENGER_COLORS: [u32; 4] = [0xc0c0c0, 0x1e40af, 0x059669, 0x7c3aed];
 const TILE_LEN: f32 = 37.3;
 const HALF_SEP: f32 = 64.0 * 0.22 / 2.0;
 
+/// Tiles ahead of a locomotive at which crossings start warning.
+pub const CROSSING_WARNING_TILES: usize = 3;
+
 pub struct Train {
     route: Vec<(i32, i32)>,
     /// Position of the locomotive front in route tiles.
@@ -42,7 +45,7 @@ fn is_station_adjacent(g: &Grid, x: i32, y: i32) -> bool {
         let (nx, ny) = (x + dx, y + dy);
         match g.kind(nx, ny) {
             Some(B::RailStation) => true,
-            Some(B::Empty) => isocity_core::sim::find_building_origin(g, nx, ny).map_or(false, |o| o.2 == B::RailStation),
+            Some(B::Empty) => isocity_core::sim::find_building_origin(g, nx, ny).is_some_and(|o| o.2 == B::RailStation),
             _ => false,
         }
     })
@@ -251,13 +254,31 @@ impl Trains {
         }
     }
 
-    /// True if any train is within `radius` tiles of `(x, y)` (crossings).
-    pub fn near(&self, x: i32, y: i32, radius: i32) -> bool {
-        self.trains.iter().any(|t| {
-            let i = (t.pos as usize).min(t.route.len() - 1);
-            let lo = i.saturating_sub(6);
-            let hi = (i + radius as usize).min(t.route.len() - 1);
-            t.route[lo..=hi].iter().any(|&(rx, ry)| (rx - x).abs() + (ry - y).abs() <= 1)
-        })
+    /// How close the nearest train is to a crossing tile, following the
+    /// trains' actual routes: `None` when no train is approaching,
+    /// `Some(0.0)` when a locomotive or carriage occupies the tile.
+    pub fn crossing_distance(&self, x: i32, y: i32) -> Option<f32> {
+        let mut best: Option<f32> = None;
+        for t in &self.trains {
+            if t.route.is_empty() {
+                continue;
+            }
+            let head = (t.pos.max(0.0) as usize).min(t.route.len() - 1);
+            let train_len: f32 = t.cars.iter().map(|c| (c.1 + 3.0) / TILE_LEN).sum();
+            let tail = (t.pos - train_len).floor().max(0.0) as usize;
+            let mut d = None;
+            if t.route[tail.min(head)..=head].contains(&(x, y)) {
+                d = Some(0.0);
+            } else {
+                let ahead = (head + CROSSING_WARNING_TILES).min(t.route.len() - 1);
+                if let Some(k) = t.route[head + 1..=ahead.max(head)].iter().position(|&p| p == (x, y)) {
+                    d = Some((k + 1) as f32 - t.pos.fract());
+                }
+            }
+            if let Some(d) = d {
+                best = Some(best.map_or(d, |b: f32| b.min(d)));
+            }
+        }
+        best
     }
 }

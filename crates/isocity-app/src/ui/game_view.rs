@@ -11,7 +11,7 @@ use gpui::{
     FocusHandle, KeyDownEvent, KeyUpEvent, MouseButton, MouseDownEvent, MouseMoveEvent, MouseUpEvent, Pixels,
     Point, ScrollWheelEvent, SharedString, Window,
 };
-use isocity_core::{save::SaveManager, BudgetKey, Command, Session, Tool};
+use isocity_core::{save::SaveManager, BudgetKey, Command, Tool};
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
@@ -550,7 +550,7 @@ impl GameView {
         let name = st.city_name.clone();
         let months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
         let date = format!("{} {}", months[(st.month.clamp(1, 12) - 1) as usize], st.year);
-        let hour = st.hour;
+        let hour = w.day_night.visual_hour(st.hour) as i32;
         drop(w);
         let (tod_icon, tod_color) = if !(6..20).contains(&hour) {
             ("moon", gpui::rgb(0x93c5fd).into())
@@ -744,7 +744,7 @@ impl GameView {
                     .cursor_pointer()
                     .when(active, |d| d.bg(bg))
                     .when(!active, |d| d.hover(|s| s.bg(theme::alpha(theme::muted(), 0.8))))
-                    .child(icon(mode.icon(), 14.0, if active { gpui::white().into() } else { theme::muted_foreground() }))
+                    .child(icon(mode.icon(), 14.0, if active { gpui::white() } else { theme::muted_foreground() }))
                     .on_click(cx.listener(move |this, _: &ClickEvent, _, cx| {
                         this.world.borrow_mut().overlay = mode;
                         cx.notify();
@@ -1175,6 +1175,3 @@ pub fn set_sprite_pack(this: &mut GameView, pack: SpritePack, window: &mut Windo
     }
 }
 
-pub fn current_tick(this: &GameView) -> u64 {
-    this.world.borrow().session.ticks()
-}

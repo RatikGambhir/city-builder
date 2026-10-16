@@ -107,7 +107,7 @@ fn bake(shape: Shape, angle: f32) -> Baked {
             let s = 0.5;
             c.fill_poly(&[(-10.0 * s, -5.0 * s), (10.0 * s, -5.0 * s), (12.0 * s, 0.0), (10.0 * s, 5.0 * s), (-10.0 * s, 5.0 * s)], Rgba::hex(0x1e3a8a));
             rect(&mut c, -4.0 * s, -5.0 * s, 7.0 * s, 10.0 * s, Rgba::hex(0xffffff));
-            rect(&mut c, -1.0 * s, -2.0 * s, 2.0 * s, 4.0 * s, Rgba::hex(0xef4444));
+            rect(&mut c, -s, -2.0 * s, 2.0 * s, 4.0 * s, Rgba::hex(0xef4444));
         }
         Shape::Bus(col) => {
             let s = 0.6;

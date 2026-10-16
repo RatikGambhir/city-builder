@@ -83,7 +83,7 @@ impl TileMap {
             };
             let direct = !park && !matches!(b.kind, B::Grass | B::Empty | B::Water | B::Road | B::Bridge | B::Rail | B::Tree);
             let grey_base = (direct || (b.kind == B::Empty && part_of_building)) && !park;
-            let is_building = origin_kind.map_or(false, |k| !k.is_terrain());
+            let is_building = origin_kind.is_some_and(|k| !k.is_terrain());
             tiles[(t.y * size + t.x) as usize] = TileInfo {
                 in_bounds: true,
                 kind: b.kind,
@@ -133,7 +133,7 @@ impl TileMap {
         let t = self.get(x, y);
         match t.kind {
             B::Road => t.in_bounds,
-            B::Bridge => t.bridge.map_or(true, |b| !b.rail),
+            B::Bridge => t.bridge.is_none_or(|b| !b.rail),
             _ => false,
         }
     }
@@ -144,7 +144,7 @@ impl TileMap {
             && (t.kind == B::Rail
                 || t.station
                 || (t.kind == B::Road && t.rail_overlay)
-                || t.bridge.map_or(false, |b| b.rail))
+                || t.bridge.is_some_and(|b| b.rail))
     }
 
     pub fn road_count(&self, x: i32, y: i32) -> u8 {
@@ -846,7 +846,6 @@ struct TrackSeg {
     ctrl: Option<P>,
     from_perp: P,
     to_perp: P,
-    curve_perp: P,
 }
 
 fn rail_segments(x: f32, y: f32, n: bool, e: bool, s: bool, w: bool) -> (Vec<TrackSeg>, bool) {
@@ -856,8 +855,8 @@ fn rail_segments(x: f32, y: f32, n: bool, e: bool, s: bool, w: bool) -> (Vec<Tra
     let ee = (x + tw * 0.75, y + th * 0.25);
     let se = (x + tw * 0.75, y + th * 0.75);
     let we = (x + tw * 0.25, y + th * 0.75);
-    let straight = |a: P, b: P, perp: P| TrackSeg { from: a, to: b, ctrl: None, from_perp: perp, to_perp: perp, curve_perp: perp };
-    let curve = |a: P, b: P, fp: P, tp: P, cp: P| TrackSeg { from: a, to: b, ctrl: Some(c), from_perp: fp, to_perp: tp, curve_perp: cp };
+    let straight = |a: P, b: P, perp: P| TrackSeg { from: a, to: b, ctrl: None, from_perp: perp, to_perp: perp };
+    let curve = |a: P, b: P, fp: P, tp: P, _cp: P| TrackSeg { from: a, to: b, ctrl: Some(c), from_perp: fp, to_perp: tp };
     let count = n as u8 + e as u8 + s as u8 + w as u8;
     let mut segs = Vec::new();
     let mut center = false;
@@ -1002,8 +1001,7 @@ pub fn draw_rail_track(c: &mut Canvas, pc: &PaintCtx, gx: i32, gy: i32, inset_on
     if !inset_only {
         for seg in &segs {
             for side in [half_sep, -half_sep] {
-                let lat = if seg.ctrl.is_some() { side } else { side };
-                c.fill_poly(&track_band(seg, lat, half_ballast), BALLAST);
+                c.fill_poly(&track_band(seg, side, half_ballast), BALLAST);
             }
         }
         if center {

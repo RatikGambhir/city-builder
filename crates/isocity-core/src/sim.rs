@@ -206,7 +206,7 @@ fn find_footprint_including_tile(
                 }
             }
             let score = road_score as f32 - (fp.width * fp.height) as f32 * 0.25;
-            if best.map_or(true, |b| score > b.2) {
+            if best.is_none_or(|b| score > b.2) {
                 best = Some((ox, oy, score));
             }
         }
@@ -923,7 +923,7 @@ pub fn simulate_tick(state: &mut GameState) {
                     let adjacent = [(-1, 0), (1, 0), (0, -1), (0, 1)]
                         .iter()
                         .filter(|(dx, dy)| {
-                            grid.get(x + dx, y + dy).map_or(false, |n| n.building.on_fire)
+                            grid.get(x + dx, y + dy).is_some_and(|n| n.building.on_fire)
                         })
                         .count();
                     if adjacent > 0 {

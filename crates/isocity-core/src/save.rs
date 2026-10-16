@@ -146,7 +146,7 @@ impl SaveManager {
         };
         let mut list: Vec<SavedCityMeta> = serde_json::from_slice(&bytes).unwrap_or_default();
         list.retain(|m| self.city_path(&m.id).exists());
-        list.sort_by(|a, b| b.saved_at.cmp(&a.saved_at));
+        list.sort_by_key(|m| std::cmp::Reverse(m.saved_at));
         list
     }
 

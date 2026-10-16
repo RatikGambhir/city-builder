@@ -30,7 +30,7 @@ pub trait Session {
     fn ticks(&self) -> u64;
 }
 
-/// Milliseconds between simulation ticks for each speed setting.
+/// Seconds between simulation ticks for each speed setting.
 pub fn tick_interval(speed: u8) -> Option<f32> {
     match speed {
         1 => Some(0.5),
