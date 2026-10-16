@@ -17,11 +17,45 @@ const KEY_THRESHOLD: f32 = 155.0;
 fn decode_sheet(sheet: Sheet) -> Option<RgbaImage> {
     let bytes = assets::sprite_bytes(sheet.file())?;
     let mut img = image::load_from_memory(bytes).ok()?.into_rgba8();
-    for p in img.pixels_mut() {
+    let (w, h) = img.dimensions();
+    let dist = |p: &Rgba<u8>| {
         let [r, g, b, _] = p.0;
-        let d = ((r as f32 - 255.0).powi(2) + (g as f32).powi(2) + (b as f32).powi(2)).sqrt();
-        if d <= KEY_THRESHOLD {
+        ((r as f32 - 255.0).powi(2) + (g as f32).powi(2) + (b as f32).powi(2)).sqrt()
+    };
+    let mut keyed = vec![false; (w * h) as usize];
+    for (i, p) in img.pixels_mut().enumerate() {
+        if p.0[3] < 8 || dist(p) <= KEY_THRESHOLD {
             p.0 = [0, 0, 0, 0];
+            keyed[i] = true;
+        }
+    }
+    // Soften the anti-aliased rim: pixels touching the keyed background that
+    // are still reddish get partial alpha with the red background un-mixed.
+    const SOFT: f32 = 60.0;
+    for y in 0..h {
+        for x in 0..w {
+            let i = (y * w + x) as usize;
+            if keyed[i] {
+                continue;
+            }
+            let edge = (x > 0 && keyed[i - 1])
+                || (x + 1 < w && keyed[i + 1])
+                || (y > 0 && keyed[i - w as usize])
+                || (y + 1 < h && keyed[i + w as usize]);
+            if !edge {
+                continue;
+            }
+            let p = img.get_pixel_mut(x, y);
+            let d = dist(p);
+            let [r0, g0, b0, _] = p.0;
+            let reddish = r0 > 170 && (r0 as i32 - g0 as i32) > 70 && (r0 as i32 - b0 as i32) > 70;
+            if d >= KEY_THRESHOLD + SOFT || !reddish {
+                continue;
+            }
+            let a = ((d - KEY_THRESHOLD) / SOFT).clamp(0.05, 1.0);
+            let [r, g, b, _] = p.0;
+            let unmix = |c: u8, bg: f32| ((c as f32 - (1.0 - a) * bg) / a).clamp(0.0, 255.0) as u8;
+            p.0 = [unmix(r, 255.0), unmix(g, 0.0), unmix(b, 0.0), (a * 255.0) as u8];
         }
     }
     Some(img)
