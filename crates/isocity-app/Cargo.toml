@@ -1,0 +1,21 @@
+[package]
+name = "isocity-app"
+description = "IsoCity desktop city builder built with GPUI"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[[bin]]
+name = "isocity"
+path = "src/main.rs"
+
+[dependencies]
+isocity-core = { path = "../isocity-core" }
+gpui = "0.2.2"
+image = { version = "0.25", default-features = false, features = ["webp", "png"] }
+tiny-skia = "0.11"
+smallvec = "1"
+log = "0.4"
+env_logger = "0.11"
+serde.workspace = true
+serde_json.workspace = true
