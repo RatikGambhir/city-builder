@@ -2,17 +2,8 @@
 //!
 //! Usage: `isocity [--new [--seed N] | --example N | --load PATH]`
 
-mod assets;
-mod entities;
-mod icons;
-mod iso;
-mod render;
-mod sprites;
-mod theme;
-mod ui;
-mod world;
-
 use gpui::{px, size, App, AppContext, Application, Bounds, TitlebarOptions, WindowBounds, WindowOptions};
+use isocity_app::{assets, icons, ui};
 use std::borrow::Cow;
 
 fn initial_state() -> Option<isocity_core::GameState> {
